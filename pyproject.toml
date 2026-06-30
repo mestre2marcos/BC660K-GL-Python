@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bc660k-lib"
+version = "0.1.0"
+description = "Python library for Quectel BC660K-GL setup, network, HTTP(S), and MQTT via AT commands"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pyserial>=3.5",
+]
+authors = [
+  { name = "BC660K Workspace" }
+]
+
+[project.scripts]
+bc660k-mqtt = "bc660k.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
