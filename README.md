@@ -126,6 +126,9 @@ Importante para TLS:
 Relatorio detalhado:
 - docs/real-modem-test-report.md
 
+Playbook de testes e contexto para IA:
+- docs/test-playbook-and-ai-context.md
+
 Documentacao de referencia (Quectel):
 - docs/application-notes/BC660k-AT-manual.md
 - docs/application-notes/bc660k-HTTPS-application-note.md
