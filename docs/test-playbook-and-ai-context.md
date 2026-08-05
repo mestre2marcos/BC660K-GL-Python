@@ -69,6 +69,81 @@ Criterio de sucesso:
 - SIM pronto;
 - status de registro = 1 (home) ou 5 (roaming).
 
+### 3.1 Recuperacao de Banda NB-IoT
+
+Use esta sequencia quando o SIM esta `READY`, mas o modulo fica em
+`+CEREG: <n>,0` ou `+CEREG: <n>,2` sem registrar:
+
+```text
+AT
+AT+QBAND?
+AT+QLOCKF?
+AT+QBANDSCAN?
+AT+COPS?
+AT+QENG=0
+```
+
+Interpretacao:
+- `AT+QBAND?` deve listar todas as bandas suportadas, ou ao menos as bandas
+	usadas pela operadora no local. Um unico valor, como `+QBAND: 8`, restringe
+	a busca a essa banda.
+- Uma resposta vazia a `AT+QLOCKF?` significa que nao ha frequencia travada.
+- `AT+COPS?: +COPS: 0` confirma selecao automatica de operadora. Nao force
+	`AT+COPS=1` sem um PLMN confirmado pelo provedor; isso pode impedir o
+	registro em roaming.
+- `AT+QBANDSCAN?` pode responder com o alias `+QCBANDSCAN`. Para SIMs que
+	registram em roaming, use o modo `1`, que evita uma varredura ampla de
+	bandas apos falhar a busca da PLMN solicitada e tenta VPLMN.
+- Em `AT+QENG=0`, `EARFCN=0`, `cellID="00000000"` e RSRP proximo de `-157`
+	indicam que nenhuma celula foi detectada; APN e PDP nao resolverao esse caso.
+
+Para remover uma restricao de banda persistida:
+
+```text
+AT+QBAND=0
+AT+QBAND?
+AT+QBANDSCAN=1
+AT+CFUN=1,1
+AT+CEREG?
+```
+
+`AT+QBAND=0` habilita todas as bandas NB-IoT suportadas, provoca detach e
+reattach e fica salvo na NVRAM. `AT+QBANDSCAN=1` tambem fica salvo na NVRAM,
+mas exige reinicializacao para entrar em vigor. Aguarde o registro chegar a
+`1` ou `5` antes de executar `AT+CGATT=1` ou ativar o PDP.
+
+### 3.2 Varredura de Operadora e Registro em Roaming
+
+Quando o modem continuar buscando depois de recuperar banda e estrategia de
+varredura, execute:
+
+```text
+AT+COPS=?
+```
+
+Este comando somente consulta as PLMNs visiveis, mas pode levar ate 130 s.
+Mantenha `AT+COPS: 0` para que o modem selecione automaticamente a rede
+encontrada. Em um teste com SIM Datatem/Vivo, o COM12 retornou:
+
+```text
++COPS: (2,"","","72402",9),,(0-4),(0-2)
+...
++CEREG: 3
++CEREG: 2
+...
++IP: <endereco IPv4 atribuido>
++CEREG: 5,"<tac>","<cell_id>",9
+```
+
+Interpretacao:
+- `72402` e uma PLMN visivel; `9` identifica E-UTRAN em modo NB-S1 (NB-IoT).
+- `CEREG: 3` e `CEREG: 2` podem ocorrer transitoriamente durante busca e nova
+	tentativa. O estado final e que determina sucesso.
+- `CEREG: 5` confirma registro em roaming. Para esse SIM, este e o resultado
+	esperado e nao deve ser tratado como falha.
+- A URC `+IP:` indica que um endereco foi atribuido; confirme-o com
+	`AT+CGATT?`, `AT+CGACT?` e `AT+CGPADDR=0` antes de testar HTTP ou MQTT.
+
 ## 4) Teste 2: Conexao Com Internet (PDP/IP)
 
 Objetivo: garantir attach PS e IP valido no CID usado.
@@ -163,6 +238,8 @@ bc660k-mqtt --port COM22 --baud 115200 --apn your.apn --broker your-broker --bro
 Se nao registra em rede:
 - verificar antena, cobertura e SIM;
 - consultar +CEREG e +COPS;
+- consultar `AT+QBAND?`, `AT+QLOCKF?` e `AT+QENG=0`; remova uma restricao
+	indevida com `AT+QBAND=0`;
 - repetir AT+CGATT=1 com timeout maior.
 
 Se sem IP:

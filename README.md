@@ -76,6 +76,29 @@ with BC660KClient(serial_cfg) as modem:
     modem.mqtt_publish(mqtt_cfg)
 ```
 
+## Configuracao e Diagnostico NB-IoT
+
+`NetworkConfig` permite aplicar as configuracoes de radio que sao persistidas
+no modem. Omitir esses campos preserva a configuracao atual do modulo.
+
+```python
+network_cfg = NetworkConfig(
+    apn="your.apn",
+    nbiot_bands=(),       # AT+QBAND=0: todas as bandas suportadas
+    band_scan_mode=1,     # AT+QBANDSCAN=1; o cliente reinicia o modem
+)
+
+with BC660KClient(SerialConfig(port="COM12", baud=115200)) as modem:
+    modem.initialize()
+    modem.configure_network(network_cfg)
+    print(modem.network_diagnostics())
+    print(modem.scan_operators())
+```
+
+Para limitar a busca, use por exemplo `nbiot_bands=(8, 28)`. Os metodos
+publicos `set_nbiot_bands`, `set_band_scan_mode`, `network_diagnostics` e
+`scan_operators` tambem podem ser usados diretamente.
+
 ## HTTP(S) via API
 
 ```python

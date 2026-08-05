@@ -57,8 +57,51 @@ class BC660KClient:
             self.at.send_at("AT+QSCLK=0")
         self.at.send_at("AT+CPIN?")
 
+    def set_nbiot_bands(self, bands: tuple[int, ...]) -> list[str]:
+        """Set preferred NB-IoT bands; an empty tuple enables all supported bands."""
+        supported_bands = {1, 2, 3, 4, 5, 8, 12, 13, 17, 18, 19, 20, 25, 28, 66, 70, 85}
+        if len(bands) > len(supported_bands) or any(band not in supported_bands for band in bands):
+            raise ValueError("nbiot_bands contains an unsupported BC660K NB-IoT band")
+        if len(set(bands)) != len(bands):
+            raise ValueError("nbiot_bands must not contain duplicate bands")
+
+        if not bands:
+            return self.at.send_at("AT+QBAND=0", timeout_s=30.0)
+        band_list = ",".join(str(band) for band in bands)
+        return self.at.send_at(f"AT+QBAND={len(bands)},{band_list}", timeout_s=30.0)
+
+    def set_band_scan_mode(self, mode: int) -> list[str]:
+        """Set QBANDSCAN mode (0=default search, 1=accelerated roaming search)."""
+        if mode not in (0, 1):
+            raise ValueError("band_scan_mode must be 0 or 1")
+        return self.at.send_at(f"AT+QBANDSCAN={mode}")
+
+    def network_diagnostics(self) -> dict[str, list[str]]:
+        """Return current registration, RF and NB-IoT search settings."""
+        return {
+            "registration": self.at.send_at("AT+CEREG?"),
+            "operator": self.at.send_at("AT+COPS?"),
+            "bands": self.at.send_at("AT+QBAND?"),
+            "band_scan": self.at.send_at("AT+QBANDSCAN?"),
+            "frequency_lock": self.at.send_at("AT+QLOCKF?"),
+            "engineering": self.at.send_at("AT+QENG=0", timeout_s=15.0),
+        }
+
+    def scan_operators(self, timeout_s: float = 130.0) -> list[str]:
+        """Scan visible operators. This can take up to roughly two minutes."""
+        return self.at.send_at("AT+COPS=?", timeout_s=timeout_s)
+
     def configure_network(self, cfg: NetworkConfig) -> None:
         """Configure operator, APN, attach, and PDP activation."""
+        restart_required = False
+        if cfg.nbiot_bands is not None:
+            self.set_nbiot_bands(cfg.nbiot_bands)
+        if cfg.band_scan_mode is not None:
+            self.set_band_scan_mode(cfg.band_scan_mode)
+            restart_required = True
+        if restart_required:
+            self.at.send_at("AT+CFUN=1,1", timeout_s=10.0)
+
         if cfg.nbiot_only:
             try:
                 self.at.send_at('AT+QCFG="nwscanmode",3')

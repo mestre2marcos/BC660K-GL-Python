@@ -22,6 +22,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--operator", default="", help="Operadora MCCMNC")
     parser.add_argument("--nbiot-only", action="store_true", help="Tenta forcar NB-IoT")
     parser.add_argument("--roaming", action="store_true", help="Tenta habilitar roaming")
+    band_group = parser.add_mutually_exclusive_group()
+    band_group.add_argument(
+        "--nbiot-band",
+        type=int,
+        action="append",
+        help="Banda NB-IoT preferida; repita a opcao para varias bandas",
+    )
+    band_group.add_argument(
+        "--all-nbiot-bands",
+        action="store_true",
+        help="Remove a restricao de bandas NB-IoT",
+    )
+    parser.add_argument(
+        "--band-scan-mode",
+        type=int,
+        choices=[0, 1],
+        default=None,
+        help="QBANDSCAN: 0=padrao, 1=busca acelerada em roaming (reinicia o modem)",
+    )
     parser.add_argument("--attach-retries", type=int, default=3, help="Tentativas de attach")
 
     parser.add_argument("--broker", required=True, help="Broker MQTT")
@@ -59,6 +78,8 @@ def main() -> int:
         operator=args.operator,
         nbiot_only=args.nbiot_only,
         roaming=args.roaming,
+        nbiot_bands=() if args.all_nbiot_bands else tuple(args.nbiot_band) if args.nbiot_band else None,
+        band_scan_mode=args.band_scan_mode,
         attach_retries=args.attach_retries,
     )
     mqtt_cfg = MQTTConfig(

@@ -19,6 +19,8 @@ class NetworkConfig:
     operator: str = ""
     nbiot_only: bool = False
     roaming: bool = False
+    nbiot_bands: tuple[int, ...] | None = None
+    band_scan_mode: int | None = None
     attach_retries: int = 3
 
 

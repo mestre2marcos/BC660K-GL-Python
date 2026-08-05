@@ -84,6 +84,50 @@ def test_configure_network_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'AT+CGAUTH=1,1,"u","p"' in client.at.commands
 
 
+def test_configure_network_applies_nbiot_search_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = make_client(monkeypatch)
+    cfg = NetworkConfig(apn="apn.test", nbiot_bands=(8, 28), band_scan_mode=1)
+
+    monkeypatch.setattr(client, "_ensure_attach", lambda retries: None)
+    monkeypatch.setattr(client, "_ensure_pdp_ip", lambda cid: None)
+
+    client.configure_network(cfg)
+
+    assert "AT+QBAND=2,8,28" in client.at.commands
+    assert "AT+QBANDSCAN=1" in client.at.commands
+    assert "AT+CFUN=1,1" in client.at.commands
+
+
+def test_configure_network_all_nbiot_bands(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = make_client(monkeypatch)
+    cfg = NetworkConfig(apn="apn.test", nbiot_bands=())
+
+    monkeypatch.setattr(client, "_ensure_attach", lambda retries: None)
+    monkeypatch.setattr(client, "_ensure_pdp_ip", lambda cid: None)
+
+    client.configure_network(cfg)
+
+    assert "AT+QBAND=0" in client.at.commands
+    assert "AT+CFUN=1,1" not in client.at.commands
+
+
+def test_network_diagnostics_and_operator_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = make_client(monkeypatch)
+    client.at.responses = {
+        "AT+CEREG?": ["+CEREG: 2,5", "OK"],
+        "AT+QENG=0": ["+QENG: 0,...", "OK"],
+        "AT+COPS=?": ['+COPS: (2,"","","72402",9)', "OK"],
+    }
+
+    diagnostics = client.network_diagnostics()
+    operators = client.scan_operators()
+
+    assert diagnostics["registration"] == ["+CEREG: 2,5", "OK"]
+    assert diagnostics["engineering"] == ["+QENG: 0,...", "OK"]
+    assert operators == ['+COPS: (2,"","","72402",9)', "OK"]
+    assert "AT+QLOCKF?" in client.at.commands
+
+
 def test_ensure_pdp_ip_activates_when_needed(monkeypatch: pytest.MonkeyPatch) -> None:
     client = make_client(monkeypatch)
     client.at.responses = {
